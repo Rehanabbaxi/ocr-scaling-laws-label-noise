@@ -122,3 +122,22 @@ def require_cuda() -> "object":
             f"torch={torch.__version__}, torch.version.cuda={torch.version.cuda}"
         )
     return torch.device("cuda")
+
+
+def set_seeds(seed: int) -> None:
+    """Seed every source of randomness and force deterministic cuDNN (spec 2)."""
+    import random
+
+    import numpy as np
+
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    except ImportError:
+        pass
