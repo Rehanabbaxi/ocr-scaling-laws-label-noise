@@ -45,6 +45,22 @@ CONFIG: dict[str, Any] = {
     "noise_type": "none",  # none | char_flip | line_swap
     "noise_rate": 0.0,  # THE NOISE AXIS. 0.0, 0.1, 0.2, 0.4
     "noise_seed": 1234,  # SEPARATE from training seed, see spec 8.3
+    # --- line cropping (spec 6.2) ---
+    # The ALTO/PAGE boxes in this corpus bound the base glyph band and exclude
+    # the superscript matras. A flat 2px pad cuts them off, so the vertical pad
+    # scales with box height and is clamped at the midpoint to adjacent lines.
+    "crop_pad_x": 2,
+    "crop_pad_top_frac": 0.55,
+    "crop_pad_bottom_frac": 0.25,
+    "crop_clamp_to_neighbours": True,
+
+    # Lines whose box is far too narrow for their transcription are broken
+    # ground truth: the crop holds a glyph fragment while the label claims a
+    # full line. CTC cannot align them (infinite loss, silently zeroed by
+    # zero_infinity), so they are dropped. Spec 9.3's remedy. None disables.
+    "min_ctc_ratio": 1.2,
+    "cnn_width_downsample": 4,  # spec 10.1: total horizontal downsampling
+
     # --- image preprocessing ---
     "img_height": 32,
     "img_max_width": 512,

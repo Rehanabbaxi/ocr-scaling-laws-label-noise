@@ -14,7 +14,6 @@ from config import CONFIG, PATHS  # noqa: E402
 from parse_xml import LineRecord, detect_format, parse_any  # noqa: E402
 from vocab import normalise  # noqa: E402
 
-PAD_PX = 2
 MIN_HEIGHT = 8
 MIN_WIDTH = 16
 MAX_ASPECT = 60.0
@@ -56,14 +55,51 @@ def _clip(box: tuple[int, int, int, int], w: int, h: int) -> tuple[int, int, int
     return (max(0, x0), max(0, y0), min(w, x1), min(h, y1))
 
 
-def classify(rec: LineRecord, img_w: int, img_h: int) -> tuple[str | None, tuple[int, int, int, int]]:
-    """Return (drop_reason or None, padded+clipped crop box). Spec 6.3."""
+MIN_X_OVERLAP_FRAC = 0.3
+
+
+def compute_crop_boxes(
+    records: list[LineRecord], img_w: int, img_h: int
+) -> list[tuple[int, int, int, int]]:
+    """Vertical padding proportional to box height, clamped at the midpoint to
+    vertically adjacent lines that share horizontal extent, so a crop can never
+    swallow its neighbour. Still an axis-aligned box: no masking, no dewarping.
+    """
+    pad_x = CONFIG["crop_pad_x"]
+    top_frac = CONFIG["crop_pad_top_frac"]
+    bot_frac = CONFIG["crop_pad_bottom_frac"]
+    clamp = CONFIG["crop_clamp_to_neighbours"]
+    boxes = [r["bbox"] for r in records]
+
+    out: list[tuple[int, int, int, int]] = []
+    for i, (x0, y0, x1, y1) in enumerate(boxes):
+        h = y1 - y0
+        top_limit, bottom_limit = 0, img_h
+        if clamp:
+            for j, (ox0, oy0, ox1, oy1) in enumerate(boxes):
+                if i == j:
+                    continue
+                overlap = min(x1, ox1) - max(x0, ox0)
+                if overlap <= MIN_X_OVERLAP_FRAC * min(x1 - x0, ox1 - ox0):
+                    continue
+                if oy1 <= y0:
+                    top_limit = max(top_limit, (oy1 + y0) // 2)
+                if oy0 >= y1:
+                    bottom_limit = min(bottom_limit, (y1 + oy0) // 2)
+        ny0 = max(0, top_limit, y0 - int(round(top_frac * h)))
+        ny1 = min(img_h, bottom_limit, y1 + int(round(bot_frac * h)))
+        out.append(_clip((x0 - pad_x, ny0, x1 + pad_x, ny1), img_w, img_h))
+    return out
+
+
+def classify(
+    rec: LineRecord, box: tuple[int, int, int, int]
+) -> tuple[str | None, tuple[int, int, int, int]]:
+    """Return (drop_reason or None, crop box). Spec 6.3."""
     text = normalise(rec["text"], CONFIG["strip_zero_width_joiners"])
     if not text:
-        return "empty_text", (0, 0, 0, 0)
+        return "empty_text", box
 
-    x0, y0, x1, y1 = rec["bbox"]
-    box = _clip((x0 - PAD_PX, y0 - PAD_PX, x1 + PAD_PX, y1 + PAD_PX), img_w, img_h)
     cw, ch = box[2] - box[0], box[3] - box[1]
     if cw <= 0 or ch <= 0:
         return "bbox_outside_image", box
@@ -73,7 +109,21 @@ def classify(rec: LineRecord, img_w: int, img_h: int) -> tuple[str | None, tuple
         return "aspect_ratio", box
     if len(text) > MAX_TEXT_LEN:
         return "text_too_long", box
+    if not ctc_feasible(len(text), cw, ch):
+        return "ctc_infeasible", box
     return None, box
+
+
+def ctc_feasible(text_len: int, crop_w: int, crop_h: int) -> bool:
+    """Will this crop yield enough CTC timesteps for its label? (spec 9.3)"""
+    ratio = CONFIG["min_ctc_ratio"]
+    if not ratio:
+        return True
+    w_resized = min(
+        int(round(crop_w * CONFIG["img_height"] / crop_h)), CONFIG["img_max_width"]
+    )
+    timesteps = -(-w_resized // CONFIG["cnn_width_downsample"])  # ceil
+    return timesteps >= text_len * ratio
 
 
 def extract_lines(raw_dir: Path, out_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, Counter]:
@@ -90,8 +140,9 @@ def extract_lines(raw_dir: Path, out_dir: Path) -> tuple[pd.DataFrame, pd.DataFr
         with Image.open(img_path) as im:
             page = im.convert("L")  # grayscale on save (spec 6.2)
             img_w, img_h = page.size
-            for rec in records:
-                reason, box = classify(rec, img_w, img_h)
+            crop_boxes = compute_crop_boxes(records, img_w, img_h)
+            for rec, box in zip(records, crop_boxes):
+                reason, box = classify(rec, box)
                 if (rec["bbox"][0] < 0 or rec["bbox"][1] < 0
                         or rec["bbox"][2] > img_w or rec["bbox"][3] > img_h):
                     stats["boxes_needing_clip"] += 1
