@@ -1,0 +1,13 @@
+# raw archives and extracted corpus - large, re-obtainable
+dataverse_files/
+dataverse_files.zip
+data/
+
+# generated line crops and inspection images
+inspect/*.png
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
