@@ -1,13 +1,30 @@
-# raw archives and extracted corpus - large, re-obtainable
+# Raw corpus and extracted line crops: ~1.5 GB, re-obtainable from
+# doi:10.11588/data/EGOKEI and regenerable byte-identically by src/extract.py.
+# See README section 5.
 dataverse_files/
 dataverse_files.zip
 data/
 
-# generated line crops and inspection images
-inspect/*.png
+# Per-line sample crops are bulk output; the curated evidence images
+# (crop_vs_padded, ctc_infeasible_lines, contact sheet) are committed.
+inspect/sample_[0-9]*.png
 
-# python
+# Training artefacts
+checkpoints/
+results/
+*.pt
+*.pth
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
 .ipynb_checkpoints/
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
