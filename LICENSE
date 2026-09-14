@@ -19,18 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOTE ON THE DATA
-
-This licence covers the source code in this repository only.
-
-The ground-truth transcriptions in manifests/ are derived from "Ground Truth
-data for printed Devanagari" by Nicole Merkel-Hilf (CATS Library / Heidelberg
-University Library), heiDATA, 2022, doi:10.11588/data/EGOKEI, which is licensed
-under Creative Commons Attribution 4.0 International (CC BY 4.0):
-https://creativecommons.org/licenses/by/4.0/
-
-Those files remain subject to CC BY 4.0. See section 7 of README.md for the
-required attribution and the statement of changes made to the source material.

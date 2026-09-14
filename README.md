@@ -401,7 +401,8 @@ are regenerated locally by `src/extract.py` (section 5).
 
 The source code in this repository is released under the [MIT Licence](LICENSE). The
 derived transcriptions in `manifests/` remain under CC BY 4.0 as described above — the
-two licences cover different files and neither overrides the other.
+two licences cover different files and neither overrides the other. [`NOTICE`](NOTICE)
+records the split and the statement of changes in one place.
 
 ### Citing this work
 

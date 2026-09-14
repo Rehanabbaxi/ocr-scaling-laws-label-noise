@@ -1,0 +1,36 @@
+NOTICE — third-party material
+=============================
+
+The MIT Licence in LICENSE covers the source code in this repository only.
+
+Derived data under CC BY 4.0
+----------------------------
+
+The ground-truth transcriptions in manifests/ are a derivative work of:
+
+    Merkel-Hilf, Nicole (2022).
+    "Ground Truth data for printed Devanagari."
+    CATS Library / Heidelberg University Library. heiDATA, V1.
+    https://doi.org/10.11588/data/EGOKEI
+
+licensed under Creative Commons Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+Those files remain subject to CC BY 4.0 and are not covered by the MIT Licence.
+
+Changes made to the source material
+-----------------------------------
+
+CC BY 4.0 requires derivative works to indicate what was changed:
+
+  * Text normalised — Unicode NFC, whitespace runs collapsed to a single space,
+    zero-width joiners and non-joiners (U+200D, U+200C) removed.
+  * 89 of 5,142 lines removed — 13 with empty transcriptions, and 76 whose
+    ground-truth bounding box is too narrow to accommodate the number of
+    characters its transcription claims.
+  * Line geometry altered — crop padding changed from the source bounding boxes
+    to a height-proportional pad (55% above, 25% below, clamped to neighbouring
+    lines), because the source boxes exclude the superscript vowel marks.
+
+No page images from the source dataset are redistributed in this repository.
+See section 7 of README.md for details.
