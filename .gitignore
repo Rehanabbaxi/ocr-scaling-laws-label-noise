@@ -9,9 +9,9 @@ data/
 # (crop_vs_padded, ctc_infeasible_lines, contact sheet) are committed.
 inspect/sample_[0-9]*.png
 
-# Training artefacts
+# Training artefacts. Checkpoints are large and regenerable; the small
+# per-run result files in results/ are the scientific record and ARE tracked.
 checkpoints/
-results/
 *.pt
 *.pth
 
@@ -31,3 +31,6 @@ Thumbs.db
 
 # Packaged line crops for Drive upload (regenerable)
 devanagari_lines.zip
+
+# Drive download archives
+output-*.zip

@@ -11,8 +11,9 @@ This repository holds the data pipeline and (in progress) the training code for 
 controlled study on historical printed Devanagari. Everything is built so that a
 single run is one point on a curve, and the curve is the result.
 
-**Status:** data pipeline and training code complete, 65 tests passing. The baseline run
-has not yet been executed, so no CER is reported here yet. See [Roadmap](#6-roadmap).
+**Status:** pipeline complete, 65 tests passing, **baseline run clears its success
+criterion at 10.1 % validation CER**. The 16-run sweep is next. See
+[Baseline result](#4-baseline-result) and [Roadmap](#7-roadmap).
 
 ---
 
@@ -76,7 +77,7 @@ to early 20th century, in Hindi, Sanskrit, Braj Bhasha and Awadhi. Each page shi
 JPEG scan plus an XML transcription giving per-line coordinates and text.
 
 The corpus is **not redistributed here** (approximately 1.5 GB). See
-[Reproducing the data](#5-reproducing-the-data) to rebuild it from the DOI; the pipeline
+[Reproducing the data](#6-reproducing-the-data) to rebuild it from the DOI; the pipeline
 is deterministic and reproduces the manifests byte-identically.
 
 ### As received
@@ -244,7 +245,64 @@ This is a small-data scaling study by construction.
 
 ---
 
-## 4. Repository layout
+## 4. Baseline result
+
+`data_fraction = 1.0`, `noise_rate = 0.0`, seed 42, on a Colab T4. This is the
+zero-noise, full-data corner of the grid — the reference point every other run is
+measured against.
+
+| | |
+| --- | --- |
+| **Validation CER** | **0.1008** |
+| **Test CER** | **0.1124** |
+| Validation WER | 0.3063 |
+| Test WER | 0.2914 |
+| Best epoch | 33 (early-stopped at 45 of 60) |
+| Parameters | 10,077,753 |
+| Training time | 15.2 min |
+| Non-finite batches | 0 |
+
+The success criterion was validation CER below ~30 %, with below 10 % counted as good.
+Full record in [`results/`](results/); per-epoch history in
+`results/devanagari_d100_none00_s42_history.csv`.
+
+### Reading the curve
+
+| Epoch | Train loss | Val CER |
+| ---: | ---: | ---: |
+| 1 | 4.066 | 1.0000 |
+| 5 | 1.699 | 0.3827 |
+| 10 | 0.543 | 0.1564 |
+| 20 | 0.120 | 0.1141 |
+| 33 | 0.0045 | **0.1008** |
+| 45 | 0.0018 | 0.1014 |
+
+Three things this says, all of which matter for the sweep:
+
+1. **The model is data-limited, not capacity- or time-limited.** Training loss reaches
+   0.0018 — effectively memorisation — while validation CER plateaus at 0.10 from around
+   epoch 30. Adding epochs or parameters will not move that plateau; only more data will.
+   That is precisely the regime a scaling-law study needs to be in.
+2. **The 60-epoch budget is sufficient.** Early stopping triggered at 45 with the best
+   model at 33, so no run is being cut short by the epoch cap.
+3. **Corpus CER and per-line mean CER agree** (0.10083 vs 0.10092), meaning error is
+   spread evenly across line lengths rather than concentrated in short lines.
+
+### A known floor in the ground truth
+
+Six of the 5,053 lines are bare page numbers transcribed with **Latin** digits, while the
+other 1,424 digit-bearing lines use **Devanagari** numerals — one inconsistent line in
+each of six different books. Those six lines are unlearnable: the image shows `१८६` and
+the label says `186`. They also account for the six Latin digit classes in the 119-character
+vocabulary.
+
+The effect is roughly 20 characters out of 186,421, which moves CER in the fourth decimal
+place. It is recorded here rather than corrected, since the correction would be invisible
+and the manifest is deliberately a faithful derivative of the source transcriptions.
+
+---
+
+## 5. Repository layout
 
 ```
 src/
@@ -281,13 +339,13 @@ These are the preprocessing result. Every experimental decision downstream — s
 subsampling, noise injection — reads the manifest and nothing else.
 
 The committed copy is a snapshot for review. At runtime the pipeline reads and writes
-manifests under `OCR_PERSISTENT_ROOT` (see [section 5](#5-reproducing-the-data)), which
+manifests under `OCR_PERSISTENT_ROOT` (see [section 6](#6-reproducing-the-data)), which
 defaults to a directory outside the repository so that bulk outputs and checkpoints stay
 untracked.
 
 ---
 
-## 5. Reproducing the data
+## 6. Reproducing the data
 
 ```bash
 pip install -r requirements.txt
@@ -327,27 +385,26 @@ are overridable by environment variable.
 
 ---
 
-## 6. Roadmap
+## 7. Roadmap
 
 **Complete** — the full pipeline: schema inspection, ALTO/PAGE parsing, line extraction,
 filtering, normalisation, vocabulary, page-level splitting, scaling-axis subsampling,
 label noise injection, CRNN model, greedy CTC decoding, CER/WER metrics, and the
 training loop with per-run results logging. 65 tests passing.
 
-Verified end to end on CPU: the model memorises a 16-line subset to **CER 0.0000,
-16/16 exact matches**, confirming that image loading, label encoding, the CTC setup,
-decoding and scoring are mutually consistent.
+**Complete** — the baseline run, at 10.1 % validation CER. See
+[section 4](#4-baseline-result).
 
 **Next**
 
-1. **Baseline run** — `data_fraction = 1.0`, `noise_rate = 0.0`, on a Colab T4 via
-   `notebook.ipynb`. Roughly 20–35 minutes.
-2. **The sweep** — the remaining 15 cells of the 4x4 grid, which is the same call with
-   two configuration values changed.
-3. **Curve fitting** — fit error against training-set size per noise rate, and compare
-   the exponents.
+1. **The sweep** — the remaining 15 cells of the 4x4 grid (four data fractions by four
+   noise rates). Same call, two configuration values changed. At roughly 15 minutes a
+   run, the full grid is about four GPU-hours.
+2. **Curve fitting** — fit error against training-set size for each noise rate, then
+   compare the exponents. That comparison is the result.
+3. **Repeated seeds** — at least the corners repeated under a second seed, to establish
+   how much of the gap between adjacent points is run-to-run variance.
 
-**Baseline success criterion:** validation CER below roughly 30 %; below 10 % is good.
 The approximately 2.29 % CER reported by the Heidelberg team using Transkribus is **not**
 the target — that is a mature production system, and matching it is not the purpose of
 this study.
@@ -371,7 +428,7 @@ this study.
 
 ---
 
-## 7. Data licence, attribution and citation
+## 8. Data licence, attribution and citation
 
 The source corpus is licensed **[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**,
 which permits redistribution and derivative works with attribution.
