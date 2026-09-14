@@ -1,6 +1,7 @@
 # Scaling Laws for OCR under Label Noise
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehanabbaxi/ocr-scaling-laws-label-noise/blob/main/notebook.ipynb)
+[![Code: MIT](https://img.shields.io/badge/code-MIT-green.svg)](LICENSE)
 [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-blue.svg)](https://creativecommons.org/licenses/by/4.0/)
 
 How does optical character recognition error scale with **training set size** when a
@@ -395,6 +396,12 @@ CC BY 4.0 requires derivative works to state what was modified. This repository'
 
 No page images from the dataset are redistributed here. The line crops derived from them
 are regenerated locally by `src/extract.py` (section 5).
+
+### Code licence
+
+The source code in this repository is released under the [MIT Licence](LICENSE). The
+derived transcriptions in `manifests/` remain under CC BY 4.0 as described above — the
+two licences cover different files and neither overrides the other.
 
 ### Citing this work
 
