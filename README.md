@@ -7,8 +7,8 @@ This repository holds the data pipeline and (in progress) the training code for 
 controlled study on historical printed Devanagari. Everything is built so that a
 single run is one point on a curve, and the curve is the result.
 
-**Status:** data pipeline complete and tested. Model and training loop not yet written.
-No training runs have been performed. See [Roadmap](#6-roadmap).
+**Status:** data pipeline and training code complete, 65 tests passing. The baseline run
+has not yet been executed, so no CER is reported here yet. See [Roadmap](#6-roadmap).
 
 ---
 
@@ -251,7 +251,12 @@ src/
   vocab.py         NFC normalisation, charset, encode/decode
   data.py          page-level splitting, scaling-axis subsampling
   noise.py         label noise injection and measured-corruption reporting
-tests/             40 pytest cases
+  dataset.py       manifest rows -> padded CTC batches
+  model.py         CRNN: conv stack -> bidirectional LSTM -> CTC head
+  metrics.py       greedy CTC decode, corpus-level CER and WER
+  train.py         training loop, evaluation, per-run results logging
+notebook.ipynb     Colab driver: environment setup and run launching only
+tests/             65 pytest cases
 manifests/         committed pipeline output (labels, drops, vocabulary)
 inspect/           committed inspection artefacts and visual evidence
 ```
@@ -320,28 +325,45 @@ are overridable by environment variable.
 
 ## 6. Roadmap
 
-**Complete** — schema inspection, ALTO/PAGE parsing, line extraction, filtering,
-normalisation, vocabulary, page-level splitting, scaling-axis subsampling, and label
-noise injection. 40 tests passing.
+**Complete** — the full pipeline: schema inspection, ALTO/PAGE parsing, line extraction,
+filtering, normalisation, vocabulary, page-level splitting, scaling-axis subsampling,
+label noise injection, CRNN model, greedy CTC decoding, CER/WER metrics, and the
+training loop with per-run results logging. 65 tests passing.
+
+Verified end to end on CPU: the model memorises a 16-line subset to **CER 0.0000,
+16/16 exact matches**, confirming that image loading, label encoding, the CTC setup,
+decoding and scoring are mutually consistent.
 
 **Next**
 
-1. **Model** — CRNN: convolutional feature extractor, bidirectional LSTM, CTC head, with
-   `cnn_width_mult` exposed as a future model-size axis.
-2. **Decoding and metrics** — greedy CTC decode; CER and WER via edit distance.
-3. **Training loop** — seeded, checkpointed, cosine schedule, gradient clipping, early
-   stopping; one row appended to `results.csv` per run alongside a dump of the full
-   config.
-4. **Evaluation** — sample predictions printed beside ground truth for visual inspection.
-5. **Baseline run** — `data_fraction = 1.0`, `noise_rate = 0.0`.
+1. **Baseline run** — `data_fraction = 1.0`, `noise_rate = 0.0`, on a Colab T4 via
+   `notebook.ipynb`. Roughly 20–35 minutes.
+2. **The sweep** — the remaining 15 cells of the 4x4 grid, which is the same call with
+   two configuration values changed.
+3. **Curve fitting** — fit error against training-set size per noise rate, and compare
+   the exponents.
 
 **Baseline success criterion:** validation CER below roughly 30 %; below 10 % is good.
 The approximately 2.29 % CER reported by the Heidelberg team using Transkribus is **not**
 the target — that is a mature production system, and matching it is not the purpose of
 this study.
 
-Once the baseline holds, the remaining 15 cells of the sweep are the same loop with two
-configuration values changed.
+### Design decisions worth knowing
+
+- **The vocabulary is built from the full training split, before subsampling.** Building
+  it from each subsample would make the output layer's width a function of
+  `data_fraction`, turning one axis into two. The alphabet is a property of the script,
+  not of the sample.
+- **Horizontal downsampling is fixed at 4x** and is load-bearing: the manifest was
+  filtered on the assumption that a width-*W* crop yields `ceil(W/4)` timesteps. Change
+  the architecture's downsampling and the manifest must be rebuilt. A test asserts the
+  two agree.
+- **Results are one JSON file per run**, not appended rows in a shared CSV. Parallel
+  experiments on separate branches would otherwise conflict on every merge.
+  `aggregate_results()` collects them into a table.
+- **CER is corpus-level** (total edits over total reference characters). The mean of
+  per-line CERs is also recorded, but it over-weights short lines and is not the
+  headline number.
 
 ---
 

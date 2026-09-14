@@ -81,6 +81,10 @@ CONFIG: dict[str, Any] = {
     "grad_clip": 5.0,
     "early_stop_patience": 12,
     "augment": False,  # keep False for scaling runs
+    # Mixed precision on the conv/LSTM stack. The CTC loss is always computed
+    # in fp32 (see model.CRNN.forward) because its log-sum-exp recursion
+    # underflows in half precision. Deterministic for a fixed seed and device.
+    "amp": True,
     # --- runtime ---
     "num_workers": 4,
     "device": "cuda",

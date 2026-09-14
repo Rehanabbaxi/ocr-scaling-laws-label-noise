@@ -28,3 +28,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Packaged line crops for Drive upload (regenerable)
+devanagari_lines.zip
