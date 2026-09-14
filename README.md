@@ -1,5 +1,8 @@
 # Scaling Laws for OCR under Label Noise
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Rehanabbaxi/ocr-scaling-laws-label-noise/blob/main/notebook.ipynb)
+[![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-blue.svg)](https://creativecommons.org/licenses/by/4.0/)
+
 How does optical character recognition error scale with **training set size** when a
 known fraction of the training labels is **wrong**?
 
@@ -367,12 +370,33 @@ this study.
 
 ---
 
-## 7. Data licence and citation
+## 7. Data licence, attribution and citation
 
-The FID4SA-GT corpus is the work of the Specialised Information Service South Asia
-(FID4SA), Heidelberg University. **Verify the licence terms on the dataset page before
-redistributing any part of the corpus.** This repository deliberately ships no page
-images and no transcriptions from it — only derived statistics and the code that
-produces them.
+The source corpus is licensed **[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**,
+which permits redistribution and derivative works with attribution.
 
-Cite the dataset as instructed on its heiDATA landing page: `doi:10.11588/data/EGOKEI`
+> **Ground Truth data for printed Devanagari** (2022), Nicole Merkel-Hilf,
+> CATS Library / Heidelberg University Library. heiDATA, V1.
+> [doi:10.11588/data/EGOKEI](https://doi.org/10.11588/data/EGOKEI).
+> Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+### Changes made to the source material
+
+CC BY 4.0 requires derivative works to state what was modified. This repository's
+`manifests/` contain transcriptions derived from the above dataset, altered as follows:
+
+- **Text normalised** — Unicode NFC, whitespace runs collapsed, zero-width
+  joiners/non-joiners (U+200D / U+200C) removed (section 3.5)
+- **89 of 5,142 lines removed** — 13 empty, 76 whose bounding box cannot accommodate
+  their transcription (section 3.4)
+- **Line geometry altered** — crop padding changed from the source boxes to a
+  height-proportional pad, to include the superscript marks the original boxes exclude
+  (section 3.3)
+
+No page images from the dataset are redistributed here. The line crops derived from them
+are regenerated locally by `src/extract.py` (section 5).
+
+### Citing this work
+
+If you use the pipeline or the derived manifests, please cite both this repository and
+the source dataset above.
