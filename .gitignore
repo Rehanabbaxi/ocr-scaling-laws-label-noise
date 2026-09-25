@@ -34,3 +34,7 @@ devanagari_lines.zip
 
 # Drive download archives
 output-*.zip
+
+# Reference papers kept locally; published PDFs are usually not
+# redistributable, so they stay out of a public repository.
+Relevant_Paper/

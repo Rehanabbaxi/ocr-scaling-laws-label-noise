@@ -11,9 +11,10 @@ This repository holds the data pipeline and (in progress) the training code for 
 controlled study on historical printed Devanagari. Everything is built so that a
 single run is one point on a curve, and the curve is the result.
 
-**Status:** pipeline complete, 65 tests passing, **baseline run clears its success
-criterion at 10.1 % validation CER**. The 16-run sweep is next. See
-[Baseline result](#4-baseline-result) and [Roadmap](#7-roadmap).
+**Status:** pipeline complete, 65 tests passing, **full 4x4 sweep run**. Baseline clears
+its success criterion at 10.1 % validation CER, and across 0-40 % label noise the error
+curve is **raised but not flattened**. See [Sweep results](#5-sweep-results-the-scaling-curves)
+and [Roadmap](#8-roadmap).
 
 ---
 
@@ -302,7 +303,149 @@ and the manifest is deliberately a faithful derivative of the source transcripti
 
 ---
 
-## 5. Repository layout
+## 5. Sweep results: the scaling curves
+
+Sixteen runs — four training-set sizes by four `char_flip` noise rates, seed 42,
+114.8 GPU-minutes on a Colab T4, zero non-finite batches. Fifteen cells are valid; one
+is excluded and explained below.
+
+![Validation CER against training-set size for four label-noise rates](figures/fig1_scaling_curves.png)
+
+**Figure 1.** Validation CER against training-set size, on log–log axes, for four label
+noise rates. Markers are measured runs; lines are the fitted power laws.
+
+### 5.1 How to read this figure
+
+Both axes are **logarithmic**, which is what makes the figure informative rather than
+decorative. A power law `CER = a · N^(-b)` becomes a straight line under logarithms:
+
+```
+log(CER) = log(a) − b · log(N)
+```
+
+so the two quantities that describe the curve become two things you can see directly:
+
+| Reading | Quantity | Meaning |
+| --- | --- | --- |
+| **Slope** of a line | exponent `b` | how *fast* error falls as data grows |
+| **Height** of a line | prefactor `a` | how *high* the whole curve sits |
+
+The markers are the sixteen measured runs. The lines are **fitted**, not drawn through
+the points — plotting the fit separately is what lets a reader judge how well the
+power-law form actually holds, rather than taking the trend on trust.
+
+Each series carries a distinct marker shape and dash pattern in addition to its colour
+step, so the figure stays readable in greyscale print and under colour-vision
+deficiency. The colour ramp is deliberately **single-hue, light to dark**: noise rate is
+an ordered quantity, not four unrelated categories, and the encoding should say so.
+
+### 5.2 Fitted parameters
+
+| Noise rate | Points | Exponent `b` | 95 % CI | Prefactor `a` | R² |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 0 % | 4 | 0.494 | ± 0.179 | 5.87 | 0.9860 |
+| 10 % | 4 | 0.473 | ± 0.061 | 6.38 | 0.9982 |
+| 20 % | 4 | 0.520 | ± 0.115 | 10.30 | 0.9947 |
+| 40 % | 3 | 0.607 | ± 0.135 | 24.71 | 0.9997 |
+
+R² between 0.986 and 0.9997: within the range measured, the power-law form describes
+these points well.
+
+### 5.3 What the figure shows
+
+**The four lines are near-parallel and stacked.** Noise lifts the whole curve upward
+rather than tilting it. The exponents stay near 0.5 while the prefactor rises more than
+fourfold, from 5.87 to 24.71.
+
+That distinction is the result. If noise **flattened** the curve, additional data would
+buy less and less as corruption rose, and collecting more would eventually stop being
+worthwhile. These curves say the opposite: the return on additional data is roughly
+unchanged, and noise behaves like a fixed tax on the starting point.
+
+An exponent near 0.5 has a concrete reading: **halving the error requires roughly four
+times the data**, since √4 = 2.
+
+Inverting each fit gives the training-set size at which a noisy run would match the
+clean run's 0.101 CER at 4,059 lines:
+
+| Noise rate | CER at 4,059 | Lines to match clean | Multiplier |
+| --- | ---: | ---: | ---: |
+| 10 % | 0.127 | 6,392 | 1.6× |
+| 20 % | 0.139 | 7,360 | 1.8× |
+| 40 % | 0.159 | 8,624 | 2.1× |
+
+The relationship is markedly **sublinear**: quadrupling the corruption rate from 10 % to
+40 % raises the data requirement by about a third, not fourfold. These figures are
+extrapolations beyond the measured range and are directional, not predictive.
+
+### 5.4 The excluded run
+
+The marker at the top left of Figure 1 is `devanagari_d012_char_flip40_s42` — 507 lines
+at 40 % noise — which reported CER 1.000. It is plotted so that its exclusion is visible
+rather than silent, and omitted from every fit.
+
+Its epoch history shows training loss still falling (6.44 → 4.29) while validation CER
+sat pinned at exactly 1.000. A CTC model emits only blanks for its first epochs, so CER
+stays at its ceiling until the model breaks through; because `best_epoch` was 1, the
+patience counter began at the first epoch and expired at 13, before that could happen.
+For comparison, the same 507-line subset with no noise did not reach its best epoch
+until 59.
+
+This is a defect in the stopping rule at low signal, not a property of the corpus: early
+stopping on validation CER carries no information while CER is at its ceiling. The cell
+needs re-running with a corrected rule before the 40 % curve can be relied on — which is
+also why that curve is fitted on three points rather than four.
+
+### 5.5 What the exponents will and will not support
+
+![Fitted exponents with 95 % confidence intervals](figures/fig2_exponents.png)
+
+**Figure 2.** Fitted exponent per noise rate with 95 % confidence intervals. Every
+interval overlaps every other interval.
+
+The point estimates rise with noise, but that trend is **not supported by this
+evidence**. With four points per fit the confidence intervals are wide and mutually
+overlapping. A leave-one-out check on the clean curve makes the point concretely:
+dropping any single point moves its exponent between 0.426 and 0.557 — a swing wider
+than the apparent trend across all four noise levels.
+
+**Supported:** across 0–40 % character corruption, the exponent is statistically
+indistinguishable while the prefactor rises steeply. Noise raises the curve.
+
+**Not supported:** that the exponent increases with noise.
+
+One further caveat: a pure power law has no floor, so it predicts CER → 0 given infinite
+data. Real OCR has an irreducible floor — this corpus contains six lines whose page
+numbers are transcribed in Latin digits while the images show Devanagari numerals, and
+those can never be read correctly. Fitting `CER = E∞ + a·N^(-b)` would be more faithful,
+but three free parameters against four points is not a fit worth reporting.
+
+### 5.6 Regenerating the figures
+
+```bash
+python scripts/make_figures.py
+```
+
+Reads `results/*.json` and writes vector PDF plus 300 dpi PNG into `figures/`. The PDFs
+embed TrueType fonts (`pdf.fonttype = 42`), which most venues require, and are the ones
+to use in a LaTeX manuscript:
+
+```latex
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/fig1_scaling_curves.pdf}
+  \caption{Validation CER against training-set size for four label-noise rates.
+           Markers are measured runs; lines are fitted power laws.}
+  \label{fig:scaling}
+\end{figure}
+```
+
+The script recomputes every fit from the result files, so the figures and the numbers in
+this section can never drift apart.
+
+---
+
+## 6. Repository layout
 
 ```
 src/
@@ -317,8 +460,12 @@ src/
   model.py         CRNN: conv stack -> bidirectional LSTM -> CTC head
   metrics.py       greedy CTC decode, corpus-level CER and WER
   train.py         training loop, evaluation, per-run results logging
+scripts/
+  make_figures.py  publication figures (PDF + PNG) from results/
 notebook.ipynb     Colab driver: environment setup and run launching only
 tests/             65 pytest cases
+results/           one JSON + history CSV per run - the scientific record
+figures/           generated figures; regenerate, do not hand-edit
 manifests/         committed pipeline output (labels, drops, vocabulary)
 inspect/           committed inspection artefacts and visual evidence
 ```
@@ -345,7 +492,7 @@ untracked.
 
 ---
 
-## 6. Reproducing the data
+## 7. Reproducing the data
 
 ```bash
 pip install -r requirements.txt
@@ -385,25 +532,35 @@ are overridable by environment variable.
 
 ---
 
-## 7. Roadmap
+## 8. Roadmap
 
 **Complete** — the full pipeline: schema inspection, ALTO/PAGE parsing, line extraction,
 filtering, normalisation, vocabulary, page-level splitting, scaling-axis subsampling,
 label noise injection, CRNN model, greedy CTC decoding, CER/WER metrics, and the
 training loop with per-run results logging. 65 tests passing.
 
-**Complete** — the baseline run, at 10.1 % validation CER. See
-[section 4](#4-baseline-result).
+**Complete** — the baseline run at 10.1 % validation CER ([section 4](#4-baseline-result)),
+the full 4x4 sweep, and the fitted scaling curves
+([section 5](#5-sweep-results-the-scaling-curves)).
 
 **Next**
 
-1. **The sweep** — the remaining 15 cells of the 4x4 grid (four data fractions by four
-   noise rates). Same call, two configuration values changed. At roughly 15 minutes a
-   run, the full grid is about four GPU-hours.
-2. **Curve fitting** — fit error against training-set size for each noise rate, then
-   compare the exponents. That comparison is the result.
-3. **Repeated seeds** — at least the corners repeated under a second seed, to establish
-   how much of the gap between adjacent points is run-to-run variance.
+1. **Fix the early-stopping rule and re-run the collapsed cell.** Hold the patience
+   counter until validation CER drops below 1.0, then re-run
+   `devanagari_d012_char_flip40_s42`. Until then the 40 % curve rests on three points.
+2. **Repeat every cell under a second and third seed.** This is the binding constraint:
+   with one run per cell there is no variance estimate, so no gap between adjacent points
+   can be called real. Roughly four GPU-hours, and it converts every claim in section 5
+   from suggestive to defensible.
+3. **Add a training-set size between 4,059 and the full corpus.** Four points per curve
+   is why the confidence intervals are so wide, and the exponent is what the paper turns
+   on.
+4. **Check the 507-line runs for a BatchNorm confound.** Running statistics are estimated
+   from whatever data a run sees, so their quality varies with training-set size — the
+   very axis under measurement. GroupNorm removes the confound if it proves real.
+5. **Sweep `line_swap`.** Only `char_flip` has been measured. Whether whole-label
+   corruption produces the same exponent is a more interesting question than either model
+   alone.
 
 The approximately 2.29 % CER reported by the Heidelberg team using Transkribus is **not**
 the target — that is a mature production system, and matching it is not the purpose of
@@ -428,7 +585,7 @@ this study.
 
 ---
 
-## 8. Data licence, attribution and citation
+## 9. Data licence, attribution and citation
 
 The source corpus is licensed **[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**,
 which permits redistribution and derivative works with attribution.
